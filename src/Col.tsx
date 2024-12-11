@@ -2,15 +2,7 @@ import { Button } from "./components/ui/button";
 import { Form, FormLabel } from "./components/ui/form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, UseFormReturn } from "react-hook-form";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./components/ui/table";
+import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { Label } from "./components/ui/label";
 import {
@@ -32,7 +24,6 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ChevronsUp, Minus } from "lucide-react";
 import { toast } from "sonner";
 import {
-  categories,
   cities,
   cityMap,
   FED_TAX,
@@ -44,12 +35,9 @@ import {
 } from "./data";
 import { Pie, PieChart } from "recharts";
 import { FIELD } from "./components/FIELD";
-
-const expenseSchema = z.object({
-  name: z.string(),
-  amount: z.coerce.number(),
-  categoryId: z.string(),
-});
+import { expensesSchema } from "./components/tables/expenses/columns";
+import { DataTable } from "./components/tables/basic-table";
+import { expenseColumns } from "./components/tables/expenses/columns";
 
 const formSchema = z
   .object({
@@ -61,7 +49,7 @@ const formSchema = z
     hsaContribution: z.coerce.number(),
     rothIRAContribution: z.coerce.number(),
     afterTaxInvestments: z.coerce.number(),
-    expenses: z.array(expenseSchema),
+    expenses: z.array(expensesSchema),
   })
   .superRefine((data, ctx) => {
     const rothLimit = rothIRALimit(data);
@@ -104,7 +92,7 @@ function rothIRALimit(data: MyForm) {
       : modifiedAGI >= high
         ? 0
         : maxContributionForAge -
-          (modifiedAGI - low) * (maxContributionForAge / (high - low));
+        (modifiedAGI - low) * (maxContributionForAge / (high - low));
   return {
     modifiedAGI,
     maxRoth,
@@ -195,7 +183,7 @@ function Inner({
                   label: status,
                 }))}
                 value="single"
-                setValue={() => {}}
+                setValue={() => { }}
               />
             </div>
             <FormLabel>City</FormLabel>
@@ -208,7 +196,7 @@ function Inner({
                   value: c.id,
                 }))}
                 value={"3"}
-                setValue={() => {}}
+                setValue={() => { }}
               />
             </div>
             <FIELD form={form} formKey="age" label="Age" />
@@ -272,7 +260,7 @@ function Inner({
                     }
                   >
                     {maxRoth.maxRoth ==
-                    form.getValues("rothIRAContribution") ? (
+                      form.getValues("rothIRAContribution") ? (
                       <Minus />
                     ) : (
                       <ChevronsUp />
@@ -289,7 +277,7 @@ function Inner({
               format={moneyFormatter}
             />
             <h2 className="text-xl">Expenses</h2>
-            <ExpensesTable form={form} />
+            <DataTable data={form.watch("expenses")} columns={expenseColumns} setValue={(name: string, value: string) => form.setValue(name as any, value)} />
             <Button type="submit" onClick={form.handleSubmit(onSubmit)}>
               Submit
             </Button>
@@ -693,65 +681,8 @@ function convertCostOfLiving(
   const remoteCOL = cityMap.get(remoteCityId)?.costOfLiving[categoryId];
   if (!localCOL || !remoteCOL) {
     throw new Error("Invalid city id");
-    return value;
   }
   return value * (remoteCOL / localCOL);
-}
-
-function ExpensesTable({ form }: { form: UseFormReturn<MyForm> }) {
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Amount</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {form.watch("expenses").map((data, index) => (
-          <TableRow key={index}>
-            <TableCell>
-              <FIELD form={form} formKey={`expenses.${index}.name`} />
-            </TableCell>
-            <TableCell>
-              <Combobox
-                name="category"
-                items={categories.map((c) => {
-                  return {
-                    label: c.name,
-                    value: c.id,
-                  };
-                })}
-                value={data.categoryId}
-                setValue={(v) => {
-                  form.setValue(`expenses.${index}.categoryId`, v);
-                }}
-              />
-            </TableCell>
-            <TableCell>
-              <FIELD
-                form={form}
-                formKey={`expenses.${index}.amount`}
-                format={moneyFormatter}
-              />
-            </TableCell>
-          </TableRow>
-        ))}
-        <TableRow>
-          <TableCell>Total</TableCell>
-          <TableCell></TableCell>
-          <TableCell>
-            {formatMoney(
-              form
-                .watch("expenses")
-                .reduce((acc, { amount }) => acc + Number(amount), 0),
-            )}
-          </TableCell>
-        </TableRow>
-      </TableBody>
-    </Table>
-  );
 }
 
 function getCityAndState(cityId: string) {
